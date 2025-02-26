@@ -1,3 +1,5 @@
+import java.util.Base64
+
 plugins {
     kotlin("jvm")
     id("com.fatherofapps.api-key-generator")
@@ -20,7 +22,21 @@ tasks.test {
 kotlin {
     jvmToolchain(17)
 }
+
+class CustomReadlineType : FAReadLine{
+    override fun readLine(line: String): Pair<String, String> {
+        return Pair("staging","")
+    }
+}
+
+class CustomFAEncrypt: FAEncrypt{
+    override fun encrypt(key: String): ByteArray {
+        return Base64.getEncoder().encode(key.toByteArray())
+    }
+}
+
 apiKeyGenerator{
+
     environments {
         register("staging"){
             keyName = "STAGING"
@@ -32,4 +48,18 @@ apiKeyGenerator{
             keyName = "DEV"
         }
     }
+
+    outPut {
+        apiKeyClassName = "ApiKeys"
+      //  apiKeyFileName = "ApiKeys.kt"
+        encryptType.set(CustomFAEncrypt())
+    }
+
+    input {
+        keyFile = layout.projectDirectory.file("scripts/api_key")
+        readLineType.set(CustomReadlineType())
+    }
+
+
+
 }
