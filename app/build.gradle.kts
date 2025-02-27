@@ -39,19 +39,20 @@ apiKeyGenerator{
 
     environments {
         register("staging"){
-            keyName = "STAGING"
+            keyName = "apiKeyStaging"
         }
         register("production"){
-            keyName = "PRODUCTION"
+            keyName = "apiKeyProduction"
         }
         register("dev"){
-            keyName = "DEV"
+            keyName = "apiKeyDev"
         }
     }
 
     outPut {
         apiKeyClassName = "ApiKeys"
-      //  apiKeyFileName = "ApiKeys.kt"
+//        apiKeyFileName = "ApiKeys.kt"
+        apiKeyFile = layout.projectDirectory.file("src/main/kotlin/data/security/ApiKey.kt")
         encryptType.set(CustomFAEncrypt())
     }
 

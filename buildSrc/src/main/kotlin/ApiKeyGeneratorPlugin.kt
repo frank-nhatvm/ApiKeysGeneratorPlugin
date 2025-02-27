@@ -58,8 +58,8 @@ class DefaultFAEncrypt : FAEncrypt {
 @APIKeyDsl
 abstract class FAOutput @Inject constructor(objectFactory: ObjectFactory) {
     val apiKeyClassName: Property<String> = objectFactory.property(String::class.java)
-    val apiKeyFileName: Property<String> = objectFactory.property(String::class.java)
-      val encryptType: Property<FAEncrypt> = objectFactory.property(FAEncrypt::class.java)
+    val apiKeyFile: RegularFileProperty = objectFactory.fileProperty()
+    val encryptType: Property<FAEncrypt> = objectFactory.property(FAEncrypt::class.java)
 }
 
 interface FAReadLine {
@@ -88,8 +88,15 @@ abstract class ApiKeyGeneratorPlugin : Plugin<Project> {
 
         val extension =
             target.extensions.create("apiKeyGenerator", ApiKeyGeneratorPluginExtension::class.java, target.objects)
-        extension.input.readLineType.convention(DefaultReadline())
+
+
         extension.outPut.encryptType.convention(DefaultFAEncrypt())
+        extension.outPut.apiKeyFile.convention(target.layout.projectDirectory.file("src/main/kotlin/ApiKey.kt"))
+        extension.outPut.apiKeyClassName.convention("ApiKey")
+
+        extension.input.keyFile.convention(target.layout.projectDirectory.file("api-key.txt"))
+        extension.input.readLineType.convention(DefaultReadline())
+
         target.tasks.register("generateApiKey", ApiKeysGeneratorTask::class.java) {
             group = "com.fatherofapps"
             description = "Generate API key file"
@@ -100,7 +107,7 @@ abstract class ApiKeyGeneratorPlugin : Plugin<Project> {
                 println("Configuring environment: ${it.name} with key: ${it.keyName}")
             }
             val output = extension.outPut
-            println("outPut file name:  ${output.apiKeyFileName.get()}")
+            println("outPut file name:  ${output.apiKeyFile.get().asFile.path}")
             println("outPut class name: ${output.apiKeyClassName.get()}")
             println("input EncryptType type: ${output.encryptType.get().javaClass.name}")
 
