@@ -100,6 +100,9 @@ abstract class ApiKeyGeneratorPlugin : Plugin<Project> {
         target.tasks.register("generateApiKey", ApiKeysGeneratorTask::class.java) {
             group = "com.fatherofapps"
             description = "Generate API key file"
+            environments = extension.environments
+            outPut.set(extension.outPut)
+            input.set(extension.input)
         }
 
         target.afterEvaluate {
