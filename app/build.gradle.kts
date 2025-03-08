@@ -25,7 +25,8 @@ kotlin {
 
 class CustomReadlineType : FAReadLine{
     override fun readLine(line: String): Pair<String, String> {
-        return Pair("staging","")
+        val list =  line.split("=")
+        return Pair(list[0], list[1])
     }
 }
 
@@ -37,27 +38,16 @@ class CustomFAEncrypt: FAEncrypt{
 
 apiKeyGenerator{
 
-    environments {
-        register("staging"){
-            keyName = "apiKeyStaging"
-        }
-        register("production"){
-            keyName = "apiKeyProduction"
-        }
-        register("dev"){
-            keyName = "apiKeyDev"
-        }
-    }
-
     outPut {
         apiKeyClassName = "ApiKeys"
-//        apiKeyFileName = "ApiKeys.kt"
         apiKeyFile = layout.projectDirectory.file("src/main/kotlin/data/security/ApiKey.kt")
+        outPutPackageName = "data.security"
         encryptType.set(CustomFAEncrypt())
     }
 
     input {
-        keyFile = layout.projectDirectory.file("scripts/api_key")
+
+        keyFile = layout.projectDirectory.file("../scripts/api_keys")
         readLineType.set(CustomReadlineType())
     }
 

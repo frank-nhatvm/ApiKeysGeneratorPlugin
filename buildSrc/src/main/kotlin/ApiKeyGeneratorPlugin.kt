@@ -58,6 +58,7 @@ class DefaultFAEncrypt : FAEncrypt {
 @APIKeyDsl
 abstract class FAOutput @Inject constructor(objectFactory: ObjectFactory) {
     val apiKeyClassName: Property<String> = objectFactory.property(String::class.java)
+    val outPutPackageName: Property<String> = objectFactory.property(String::class.java)
     val apiKeyFile: RegularFileProperty = objectFactory.fileProperty()
     val encryptType: Property<FAEncrypt> = objectFactory.property(FAEncrypt::class.java)
 }
@@ -93,32 +94,19 @@ abstract class ApiKeyGeneratorPlugin : Plugin<Project> {
         extension.outPut.encryptType.convention(DefaultFAEncrypt())
         extension.outPut.apiKeyFile.convention(target.layout.projectDirectory.file("src/main/kotlin/ApiKey.kt"))
         extension.outPut.apiKeyClassName.convention("ApiKey")
+        extension.outPut.outPutPackageName.convention("")
 
-        extension.input.keyFile.convention(target.layout.projectDirectory.file("api-key.txt"))
+//        extension.input.keyFile.convention(target.layout.projectDirectory.file("api-key.txt"))
         extension.input.readLineType.convention(DefaultReadline())
 
         target.tasks.register("generateApiKey", ApiKeysGeneratorTask::class.java) {
             group = "com.fatherofapps"
             description = "Generate API key file"
-            environments = extension.environments
+            apiKeyNames.convention(emptySet())
+            apiKeyValues.convention(emptySet())
+            environments.addAll(extension.environments)
             outPut.set(extension.outPut)
             input.set(extension.input)
         }
-
-        target.afterEvaluate {
-            extension.environments.forEach {
-                println("Configuring environment: ${it.name} with key: ${it.keyName}")
-            }
-            val output = extension.outPut
-            println("outPut file name:  ${output.apiKeyFile.get().asFile.path}")
-            println("outPut class name: ${output.apiKeyClassName.get()}")
-            println("input EncryptType type: ${output.encryptType.get().javaClass.name}")
-
-            val input = extension.input
-            println("input key file : ${input.keyFile.get()}")
-            println("input read line type: ${input.readLineType.get().javaClass.name}")
-        }
-
-
     }
 }
