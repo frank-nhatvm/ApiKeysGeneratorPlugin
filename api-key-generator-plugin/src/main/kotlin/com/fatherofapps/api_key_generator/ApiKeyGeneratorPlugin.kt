@@ -1,3 +1,5 @@
+package com.fatherofapps.api_key_generator
+
 import org.gradle.api.Named
 import org.gradle.api.NamedDomainObjectContainer
 import org.gradle.api.Plugin
@@ -5,8 +7,6 @@ import org.gradle.api.Project
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.Property
-import org.gradle.kotlin.dsl.newInstance
-import java.io.File
 import javax.inject.Inject
 
 @DslMarker

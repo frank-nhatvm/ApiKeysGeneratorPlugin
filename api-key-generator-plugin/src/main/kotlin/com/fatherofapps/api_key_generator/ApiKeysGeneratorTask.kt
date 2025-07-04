@@ -1,3 +1,5 @@
+package com.fatherofapps.api_key_generator
+
 import org.gradle.api.DefaultTask
 import org.gradle.api.NamedDomainObjectContainer
 import org.gradle.api.model.ObjectFactory
