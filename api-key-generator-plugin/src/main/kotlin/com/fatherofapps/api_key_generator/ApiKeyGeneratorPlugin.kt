@@ -92,7 +92,7 @@ abstract class ApiKeyGeneratorPlugin : Plugin<Project> {
 
 
         extension.outPut.encryptType.convention(DefaultFAEncrypt())
-        extension.outPut.apiKeyFile.convention(target.layout.projectDirectory.file("src/main/kotlin/ApiKey.kt"))
+        extension.outPut.apiKeyFile.convention(target.layout.projectDirectory.file("src/ApiKey.kt"))
         extension.outPut.apiKeyClassName.convention("ApiKey")
         extension.outPut.outPutPackageName.convention("")
 

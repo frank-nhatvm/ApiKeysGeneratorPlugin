@@ -71,11 +71,9 @@ abstract class ApiKeysGeneratorTask @Inject constructor(objects: ObjectFactory) 
                 val (name, value) = readLineType.readLine(line)
                 map[name] = value
             }}catch (e: Exception){
-                println("Exception while reading input file : ${e.message}")
                 throw e
             }
         }
-        println("map: $map")
         return map.toMap()
     }
 
