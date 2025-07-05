@@ -1,170 +1,225 @@
+# Secure API Key Management with ApiKeysGeneratorPlugin in Kotlin and Android Projects
 
-This Plugin provides a Task to allow you to generate the API key to the ByteArray format.
-By doing this, you can hide the real API key from your source code.
-Here is how the output file looks like:
+Modern Android development often requires embedding API keys (e.g., for Firebase, Google Maps, or third-party services) in your project. Hardcoding keys in `build.gradle` or source code paths risks accidental exposure in version control or builds. The [**ApiKeysGeneratorPlugin**](https://plugins.gradle.org/plugin/com.fatherofapps.api-key-generator) solves this by centralizing keys, generating typed Kotlin accessors, and keeping secrets out of version control.
+
+![Plugin overview](screenshots/plugin_overview.png)
+
+---
+
+## How does it solve the problem?
+
+The plugin works based on a Gradle-based code generation approach:
+
+1. **Input**: The plugin accepts API keys as key-value pairs, for example: `mainServerKey=xyzt`. You can provide these inputs either via the command line or from a file.
+
+    - **Command line**: You can store API keys securely in the cloud or in your CI/CD environment (e.g., GitHub Secrets), then pass them as parameters when running the Gradle task. This approach keeps secrets out of source code and works well in automated pipelines.
+
+    - **File input**: You can store keys in a plain-text `.properties` file (e.g., `apikeys.properties`) and exclude it from version control via `.gitignore` to keep it secure.
+
+2. **Gradle task**: The plugin registers a custom Gradle task that reads the keys from the file or command line, then generates a Kotlin source file with constants or properties.
+
+3. **Secure build-time injection**: During compilation, the generated source file is included in your project’s source set. You can access API keys using strongly typed constants like `ApiKeys.GOOGLE_MAPS_KEY` instead of hardcoded strings.
+
+4. **Customization support**: You can configure package name, class name, output path, and even define custom encryption logic for the values—making the plugin highly adaptable.
+
+---
+
+## Basic usage
+
+### Apply the plugin
+
+In your `build.gradle.kts`:
+
 ```kotlin
-package data.security
+id("com.fatherofapps.api-key-generator") version "latest_version"
+```
+Check for the latest version in [here](https://github.com/frank-nhatvm/ApiKeysGeneratorPlugin/releases).
 
-internal object ApiKeys{
-    
-    val staging: ByteArray = byteArrayOf(0x61,0x32,0x78,0x73,0x61,0x32,0x46,0x7A,0x62,0x47,0x52,0x6D,0x61,0x32,0x70,0x7A,0x62,0x47,0x46,0x6D,0x61,0x77,0x3D,0x3D)
-    
-    val production: ByteArray = byteArrayOf(0x62,0x47,0x46,0x7A,0x61,0x32,0x52,0x6D,0x61,0x6D,0x74,0x7A,0x62,0x47,0x46,0x6D,0x5A,0x47,0x73,0x3D)
-    
-    val dev: ByteArray = byteArrayOf(0x4D,0x6E,0x4A,0x31,0x4D,0x44,0x6C,0x33,0x64,0x57,0x59,0x35,0x4D,0x48,0x4E,0x71,0x5A,0x67,0x3D,0x3D)
+Configure the plugin:
+```kotlin
+apiKeyGenerator {
+        outPut {
+            apiKeyClassName = "your_class_name"
+            apiKeyFile =layout.projectDirectory.file("your_file")
+            outPutPackageName = "your_packge_name"
+        }
+    }
+```
+Notice: You should add the generated file to the `.gitignore`
+
+Sync the pro, then run
+```bash
+./gradlew generateApiKey --apiKeyNames=your_apikey_name --apiKeyValues=your_apikey_value
+```
+For the CI/CD, first you need to add your ApiKey’s value to GitHub Secret, then add a new step in your Github Action:
+```yaml
+- name: Generate ApiKey
+  run: |
+    ./gradlew generateApiKey -apiKeyNames=your_apikey_name --apiKeyValues=${{ secrets.API_KEY_VALUE }}
+```
+The generated file:
+```kotlin
+package your_package_name
+internal object your_class_name{
+  val your_apikey_name: ByteArray = byteArrayOf(0x6B,0x65,0x79,0x2D,.....)
+}
+```
+To convert back to the raw key and use in code, you can implement a `ApiKeyProvider`  class and use `String(bytearray)` .
+```kotlin
+object  ApiKeyProvider{
+    fun your_apikey_name() = String(your_class_name.your_apikey_name)
+}
+```
+
+# Providing the Apikey in a file
+
+In development, you maybe want to provide the Apikey in a file. The common scenario is
+
+- Your company/team stores all the Apikey in a cloud. (Eg: Bitwarden)
+- You are granted the permission to copy the ApiKey
+- You create a file with the ApiKey’s name and ApiKey’s value, add this file to the `.gitignore`
+
+In your project, you can create a folder to keep this file. By default, the Plugin expects each ApiKey in a pair of key and value is provide in a line and in `key=value` format. If you want to customize this format, check Customize how to read the input file section   A sample file:
+```json
+//rootProject/secrets/keys.properties
+apiKeys=your_raw_key_in_plain_text
+```
+
+Next step, you need to update the Plugin’s configuration:
+```kotlin
+apiKeyGenerator {
+        outPut {
+            apiKeyClassName = "your_class_name"
+            apiKeyFile =layout.projectDirectory.file("your_file")
+            outPutPackageName = "your_packge_name"
+        }
+        input {
+            keyFile = layout.projectDirectory.file("secrets/keys.properties")
+        }
+    }
+```
+Do the sync, then run:
+```bash
+./gradlew generateApiKey
+```
+
+## Working with Flavor
+
+If your project uses multiple flavors, you can create a separate API key file for each flavor and configure the input file by Flavor. Below is a sample configuration for an Android project with `dev`, `staging`, and `production` flavors:
+```kotlin
+android {
+flavorDimensions += "default"
+    productFlavors {
+
+        create("production") {
+
+        }
+        create("dev") {
+
+        }
+
+        create("staging") {
+
+        }
+
+    }
+
+    val flavorName = project.findProperty("flavor") as? String ?: "dev"
+
+    apiKeyGenerator {
+        outPut {
+            apiKeyClassName = "ApiKeys"
+            apiKeyFile =
+                layout.projectDirectory.file("src/main/java/com/fatherofapps/demojnav/data/security/ApiKey.kt")
+            outPutPackageName = "com.fatherofapps.demojnav.data.security"
+        }
+        input {
+            keyFile = layout.projectDirectory.file("secrets/$flavorName.keys.properties")
+        }
+    }
 
 }
 ```
-This Plugin supports both local setup and CI/CD. 
-- For local setup, you can provide  an input file. For example,here is the input file for the above generated file
-```shell
-    staging=kllkasldfkjslafk
-    production=laskdfjkslafdk
-    dev=2ru09wuf90sjf
-``` 
-- Fo CI/CD, you can provide name and value as below:
-```shell
-./gradlew :app:generateApiKey --apiKeyNames=staging --apiKeyValues=keyStaging --apiKeyNames=dev --apiKeyValues=keyDev
+
+The secrets folder:
+![Alt text](screenshots/secrets_folder.png)
+
+Then to generate the key, you run as below:
+```bash
+./gradlew generateApiKey -Pflavor=flavor_name // dev, staging or production
 ```
 
+# Customize how to read the input file
 
-# Basic usage
-## Add plugin to your module , (build.gradle.kts)
+When the ApiKey is provide in a file, the Plugin reads each line of that file and parse for a pair of key and value. The default format for each line is `key=value` , if you want to use a different format for each line of your input file, you can provide a  `FAReadLine` implementation
 ```kotlin
- id("com.fatherofapps.api-key-generator")
-```
-## Configure the Plugin
-In the build.gradle.kts of your module
-```kotlin
-apiKeyGenerator{
-
-    outPut {
-        apiKeyClassName = "ApiKeys"
-        apiKeyFile = layout.projectDirectory.file("src/main/kotlin/data/security/ApiKey.kt")
-        outPutPackageName = "data.security"
-    }
-
-    input {
-        keyFile = layout.projectDirectory.file("../scripts/api_keys")
-    }
-    
-}
-```
-Whereas :
-- keyFile: is the file you locate the input file. This file will contain all API key's name and its value that you want to generate to file
-- apiKeyClassName: name of `internal object`. In our example, we use `ApiKeys`, then later you can access the API key like this: `APIKeys.staging`
-- apiKeyFile: the file you want to write the generated code to. You just need to make sure the parent folder is created, if the file is not exist, it will be created by Plugin
-- outPutPackName: the package's name of `internal object $apiKeyClassName`. In our sample,we use `data.security`.
-
-# Advance usage
-## Customize how to read the input file
-By default, Plugin expects each line of the input file will be in this format: `name=value`. It splits this line into two parts to take `name` and `value` by using pattern `=`. 
-If you want to use a different format for each line of your input file, you can provide a custom `FAReadLine`.
-```kotlin
-class CustomReadlineType : FAReadLine{
-    override fun readLine(line: String): Pair<String, String> {
+interface FAReadLine{
+     fun readLine(line: String): Pair<String, String> {
         
     }
 }
 ```
-Plugin reads the input file line by line, then it gives you each line, and expects a Pair of name and value.
-You can provide your custom `FAReadLine` as below:
+![Alt_text](screenshots/customize_input_file.png)
+The flow:
+
+- The Plugin read one line of ApiKey file
+- The Plugin calls your custom `FAReadLine`  and pass the line in String
+- Your custom `FAReadLine`  returns a `Pair<String,String`
+
+A sample of implementing a custom `FAReadLine`  and how to configure it:
 ```kotlin
-apiKeyGenerator {
+// build.gradle.kts
 
-    intPut {
-        // other configurations
-        readLineType.set(CustomReadlineType())
-    }
-
-// other configurations
-}
-```
-## Customize how to encrypt the API Key's value
-Here is how a Pair of name and value is generated to file:
-```kotlin
-val staging: ByteArray = byteArrayOf(0x61,0x32,0x78,0x73,0x61,0x32,0x46,0x7A,0x62,0x47,0x52,0x6D,0x61,0x32,0x70,0x7A,0x62,0x47,0x46,0x6D,0x61,0x77,0x3D,0x3D)
-```
-For each line like this, Plugin receives the Pair name and value, converts the value to ByteArray: `value.toByteArray()` then uses the following function to produce the line of code:
-```kotlin
- private fun generateByteArrayCode(name: String, byteArray: ByteArray): String {
-        val hexValues = byteArray.joinToString(",") { "0x" + it.toUByte().toString(16).uppercase() }
-        return "val $name: ByteArray = byteArrayOf($hexValues)"
-    }
-```
-With this solution, you can use `String` to convert the `ByteArray` to real API key's value, 
-```kotlin
-object  ApiKeyProvider{
-    fun apiKeyStaging() = String(ApiKeys.staging)
-    fun apiKeyProduction() = String(ApiKeys.production)
-    fun apiKeyDev() = String(ApiKeys.dev)
-}
-```
-If you want to apply another encryption algorithm for your API Key's value before Plugin prints it to `ByteArray`,
-you can provide a custom of `FAEncrypt`:
-```kotlin
-class CustomFAEncrypt: FAEncrypt{
-    override fun encrypt(key: String): ByteArray {
-        // replace this by your encryption algorithm
-        return Base64.getEncoder().encode(key.toByteArray()) 
-    }
-}
-```
-Plugin gives you the key and expect a `ByteArray`.  
-then apply this custom:
-```kotlin
-apiKeyGenerator {
-
-    outPut {
-        // other configurations
-        encryptType.set(CustomFAEncrypt())
-    }
-
-    // other configurations
-}
-```
-Then to convert the key to real key:
-```kotlin
-object  ApiKeyProvider {
-    // replace by your decryption algorithm
-    fun apiKeyStaging() = String(Base64.getDecoder().decode(ApiKeys.staging))
-    // other codes
-}
-```
-
-Here is the full code of `build.gradle.kts` file with the custom of `FAReadLine` and `FAEncrypt`
-```kotlin
-import java.util.Base64
-
-plugins {
-    kotlin("jvm")
-    id("com.fatherofapps.api-key-generator")
-}
-
-group = "com.fatherofapps"
-version = "1.0-SNAPSHOT"
-
-repositories {
-    mavenCentral()
-}
-
-dependencies {
-    testImplementation(kotlin("test"))
-}
-
-tasks.test {
-    useJUnitPlatform()
-}
-kotlin {
-    jvmToolchain(17)
-}
-
-class CustomReadlineType : FAReadLine{
+ 
+ class CustomReadlineType : FAReadLine{
     override fun readLine(line: String): Pair<String, String> {
-        val list =  line.split("=")
+         val list = ......
+
         return Pair(list[0], list[1])
     }
 }
+
+apiKeyGenerator{
+   //... other configurations
+
+    input {
+        keyFile = layout.projectDirectory.file("secrets/keys.properties")
+        readLineType.set(CustomReadlineType())
+    }
+}
+```
+
+# Customize the encryption algorithm
+
+The generated output  will look like below:
+```kotlin
+
+val apiKey: ByteArray = byteArrayOf(0x6B,0x65,0x79,0x2D,0x70,0x72,0x6F,0x64,0x75,0x63,0x74,0x69,0x6F,0x6E)
+```
+The steps to generate that result in Plugin:
+
+- Step 1: ApiKey’s value in String will be converted to `ByteArray` by using `toByteArray` function of `String`
+  - Step 2: The Apikey’s name and the Apikey’value in ByteArray of step one will go to the following function:
+
+```kotlin
+              private fun generateByteArrayCode(name: String, byteArray: ByteArray): String {
+              val hexValues = byteArray.joinToString(",") { "0x" + it.toUByte().toString(16).uppercase() }
+              return "val $name: ByteArray = byteArrayOf($hexValues)"
+              }  
+```
+If you wan to use another encryption algorithm to convert Apikey’s value in String to ByteArray  in step 1, you can implement a custom FAEncrypt 
+```kotlin
+interface FAEncrypt{
+     fun encrypt(key: String): ByteArray {
+
+    }
+}
+```
+The flow will look like this:
+![Alt_text](screenshots/encryption_algorithm_flow.png)
+The sample how you implement FAEncrypt  and add it to the configuration:
+```kotlin
+// build.gradle.kts
 
 class CustomFAEncrypt: FAEncrypt{
     override fun encrypt(key: String): ByteArray {
@@ -173,18 +228,17 @@ class CustomFAEncrypt: FAEncrypt{
 }
 
 apiKeyGenerator{
-
-    outPut {
-        apiKeyClassName = "ApiKeys"
-        apiKeyFile = layout.projectDirectory.file("src/main/kotlin/data/security/ApiKey.kt")
-        outPutPackageName = "data.security"
-        encryptType.set(CustomFAEncrypt())
-    }
-
-    input {
-        keyFile = layout.projectDirectory.file("../scripts/api_keys")
-        readLineType.set(CustomReadlineType())
-    }
-    
+   outPut {
+   // ... other configurations
+   encryptType.set(CustomFAEncrypt())
+   }
 }
+```
+
+You will need to use your appropriate decryption algorithm for your encryption algorithm, when you want to convert the Apikey’s value from ByteArray  to raw value:
+```kotlin
+object  ApiKeyProvider{
+    fun your_apikey_name() = String( Base64.decode(apiKey, Base64.DEFAULT))
+    
+  }  
 ```
